@@ -43,12 +43,12 @@ The backup will be saved as a compressed .tar.gz file in: ~/Backups/ZenBrowser/
 2. Press Windows Key, type PowerShell, right-click it, and Run as Administrator.
 3. Enable Script Execution (First Time Only): By default, Windows blocks scripts for security. To allow this tool to run:
 
-    - Press the Windows Key, type PowerShell, and press Enter.
+   * ** Press the Windows Key, type PowerShell, and press Enter.
 
-   - Copy and paste the following command and hit Enter:
+   * ** Copy and paste the following command and hit Enter:
 ```bash
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
-- Type Y and hit Enter.
+   * ** Type Y and hit Enter.
 
 4. Now right-clicking your zen-backup.ps1 and Run with PowerShell
