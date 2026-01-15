@@ -15,7 +15,7 @@ It solves the common issues of crashing profiles and missing icons when migratin
 ---
 
 ##  🚀 Installation & Usage
-## 🐧 Linux & 🍎 macOS
+## 🐧 Linux 
 
 1.  Clone this repository or download the script:
     ```bash
@@ -28,26 +28,35 @@ It solves the common issues of crashing profiles and missing icons when migratin
     chmod +x zen-backup.sh 
     ```
     
-3. Execute:
+3. Run the tool:
     ```bash
     ./zen-backup.sh
     ```
 
 Select the profile you want to backup.
-
 The backup will be saved as a compressed .tar.gz file in: ~/Backups/ZenBrowser/
+
+## 🍎 macOS
+1. Make the script executable:
+    ```bash
+    chmod +x zen-backup-mac.sh
+    ```
+2. Run the tool:
+    ```bash
+    ./zen-backup-mac.sh
+    ```
 
 ---
 
 ## 🪟 Windows
 
-### 1. Download
+#### 1. Download
 Clone the repository or download the ZIP file and extract it.
 
-### 2. Open PowerShell as Administrator
+#### 2. Open PowerShell as Administrator
 Press the **Windows Key**, type **PowerShell**, right-click it, and select **Run as Administrator**.
 
-### 3. Enable Script Execution (First Time Only)
+#### 3. Enable Script Execution (First Time Only)
 By default, Windows blocks PowerShell scripts for security reasons. To allow this script to run:
 
 1. Press the **Windows Key**, type **PowerShell**, and press **Enter**
