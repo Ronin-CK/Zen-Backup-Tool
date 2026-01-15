@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# ZEN BROWSER BACKUP TOOL (macOS Edition)
+# ZEN BROWSER BACKUP TOOL
 # ==============================================================================
 
 BACKUP_ROOT="$HOME/Backups/ZenBrowser"
