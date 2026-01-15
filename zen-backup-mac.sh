@@ -23,10 +23,8 @@ echo -e "${BLUE}========================================${RESET}"
 
 # 1. DETECT PROFILES (macOS Path)
 # -------------------------------
-# macOS stores profiles in Application Support
 ZEN_MAC_PATH="$HOME/Library/Application Support/Zen Browser"
 
-# Find profiles by looking for places.sqlite, strip the filename to get the folder
 PROFILE_PATHS=$(find "$ZEN_MAC_PATH" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
 
 IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
@@ -113,7 +111,7 @@ if [ -f "$SELECTED_PROFILE/prefs.js" ]; then
 
     # 1. Remove absolute file paths (Fixes Crashes)
     # NOTE: MacOS 'sed' requires -i ''
-    sed -i '' '/\/Users\//d' "$TEMP_DIR/user.js"     # Mac users are in /Users/, not /home/
+    sed -i '' '/\/Users\//d' "$TEMP_DIR/user.js"  
     sed -i '' '/file:\/\//d' "$TEMP_DIR/user.js"
 
     # 2. Remove broken icon settings
