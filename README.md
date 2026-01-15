@@ -14,7 +14,8 @@ It solves the common issues of crashing profiles and missing icons when migratin
 * **📦 Complete Data:** Backs up History, Bookmarks, Passwords (`key4.db` + `logins.json`), Cookies, Extensions, and Sessions.
 ---
 
-## 🚀 Installation
+##  🚀 Installation & Usage
+## 🐧 Linux & 🍎 macOS
 
 1.  Clone this repository or download the script:
     ```bash
@@ -27,12 +28,6 @@ It solves the common issues of crashing profiles and missing icons when migratin
     chmod +x zen-backup.sh
     ```
 
----
-
-## 🛠️ Usage
-
-Simply run the script from your terminal:
-
 ```bash
 ./zen-backup.sh
 ```
@@ -40,3 +35,20 @@ Simply run the script from your terminal:
 Select the profile you want to backup.
 
 The backup will be saved as a compressed .tar.gz file in: ~/Backups/ZenBrowser/
+
+🪟 Windows
+
+1. Download: Clone the repository or download the ZIP file and extract it.
+
+2. Press Windows Key, type PowerShell, right-click it, and Run as Administrator.
+3. Enable Script Execution (First Time Only): By default, Windows blocks scripts for security. To allow this tool to run:
+
+    - Press the Windows Key, type PowerShell, and press Enter.
+
+   - Copy and paste the following command and hit Enter:
+```bash
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+- Type Y and hit Enter.
+
+4. Now right-clicking your zen-backup.ps1 and Run with PowerShell
