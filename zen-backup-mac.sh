@@ -26,7 +26,6 @@ echo -e "${BLUE}========================================${RESET}"
 # macOS stores profiles in Application Support
 ZEN_MAC_PATH="$HOME/Library/Application Support/zen"
 
-# Find profiles by looking for places.sqlite, strip the filename to get the folder
 PROFILE_PATHS=$(find "$ZEN_MAC_PATH" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
 
 IFS=$'\n' read -rd '' -a PROFILES <<<"$PROFILE_PATHS"
