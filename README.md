@@ -10,7 +10,7 @@ It solves the common issues of crashing profiles and missing icons when migratin
 
 * **🧠 Intelligent Detection:** Automatically detects if you are using **Sine Mod**, standard **CSS themes**, or a **Vanilla** profile and backs up the correct visual files.
 * **🧪 Settings Sanitization:** Scans your `prefs.js` and removes absolute file paths (like `/home/user/`) to prevent crashes when restoring to a new computer or username.
-* **🔧 Auto-Fixes Icons:** Automatically injects the `svg.context-properties` fix into the backup. This ensures that **Sine Mod icons** and other SVG themes work immediately upon restore—no `about:config` tweaking required.
+* **🔧 Auto-Fixes Icons:** Automatically injects the `svg.context-properties` fix into the backup. This ensures that **Sine Mod icons** and other SVG themes work immediately upon restore-no `about:config` tweaking required.
 * **📦 Complete Data:** Backs up History, Bookmarks, Passwords (`key4.db` + `logins.json`), Cookies, Extensions, and Sessions.
 ---
 
