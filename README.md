@@ -68,3 +68,11 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 3. Type Y and hit Enter.
 
 4. Now right-clicking your zen-backup-win.ps1 and Run with PowerShell
+
+## ❓ Troubleshooting
+
+**Q: My "Compact Mode" or settings aren't saving after restore?**
+* **Solution:** Go to your restored profile folder and look for a file named `user.js`. **Delete it.**
+* *Why?* This file is used to safely import settings, but sometimes it "locks" your preferences. Deleting it allows you to change settings again.
+
+* Make sure you launch Zen with the restored profile at least once before deleting `user.js`. This allows the browser to read and save your imported settings permanently.
