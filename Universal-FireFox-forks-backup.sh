@@ -15,7 +15,7 @@ RESET="\e[0m"
 # Header
 clear
 echo -e "${BLUE}========================================${RESET}"
-echo -e "${BOLD}   🦊 Firefox Forks BACKUP   ${RESET}"
+echo -e "${BOLD}   🦊 UNIVERSAL BROWSER BACKUP   ${RESET}"
 echo -e "${BLUE}========================================${RESET}"
 
 # 1. BROWSER SELECTION
@@ -27,82 +27,73 @@ echo -e "  [3] LibreWolf"
 echo -e "  [4] Floorp"
 echo -e "  [5] Mercury"
 echo -e "  [6] Waterfox"
-echo -e "  [7] Custom Path (Enter manually)"
+echo -e "  [7] Custom Path"
 echo ""
 read -p "Select [1-7]: " BROWSER_CHOICE
 
-TARGET_PATHS=""
 BROWSER_NAME="Browser"
+TARGET_PATHS=""
 
 case $BROWSER_CHOICE in
     1)
         BROWSER_NAME="Firefox"
-        TARGET_PATHS="$HOME/.mozilla/firefox $HOME/.var/app/org.mozilla.firefox/.mozilla/firefox $HOME/snap/firefox/common/.mozilla/firefox"
-        ;;
+        TARGET_PATHS="$HOME/.mozilla/firefox $HOME/.var/app/org.mozilla.firefox/.mozilla/firefox $HOME/snap/firefox/common/.mozilla/firefox" ;;
     2)
         BROWSER_NAME="Zen"
-        TARGET_PATHS="$HOME/.zen $HOME/.var/app/io.github.zen_browser.zen/.zen"
-        ;;
+        TARGET_PATHS="$HOME/.zen $HOME/.var/app/io.github.zen_browser.zen/.zen" ;;
     3)
         BROWSER_NAME="LibreWolf"
-        TARGET_PATHS="$HOME/.librewolf $HOME/.var/app/io.gitlab.librewolf-community/.librewolf"
-        ;;
+        TARGET_PATHS="$HOME/.librewolf $HOME/.var/app/io.gitlab.librewolf-community/.librewolf" ;;
     4)
         BROWSER_NAME="Floorp"
-        TARGET_PATHS="$HOME/.floorp $HOME/.var/app/one.ablaze.floorp/.floorp"
-        ;;
+        TARGET_PATHS="$HOME/.floorp $HOME/.var/app/one.ablaze.floorp/.floorp" ;;
     5)
         BROWSER_NAME="Mercury"
-        TARGET_PATHS="$HOME/.mercury $HOME/.var/app/io.gitlab.mercury/.mercury"
-        ;;
+        TARGET_PATHS="$HOME/.mercury $HOME/.var/app/io.gitlab.mercury/.mercury" ;;
     6)
         BROWSER_NAME="Waterfox"
-        TARGET_PATHS="$HOME/.waterfox $HOME/.var/app/net.waterfox.waterfox/.waterfox"
-        ;;
+        TARGET_PATHS="$HOME/.waterfox $HOME/.var/app/net.waterfox.waterfox/.waterfox" ;;
     7)
-        echo ""
-        read -p "Enter full path to profiles folder (e.g. /home/user/.mozilla/firefox): " CUSTOM_PATH
+        read -p "Enter full path to config folder (parent of profile folder): " CUSTOM_PATH
         TARGET_PATHS="$CUSTOM_PATH"
-        BROWSER_NAME="Custom"
-        ;;
+        BROWSER_NAME="Custom" ;;
     *)
         echo -e "${RED}❌ Invalid selection.${RESET}"; exit 1 ;;
 esac
 
-# Setup Backup Vars based on selection
 BACKUP_ROOT="$HOME/Backups/$BROWSER_NAME"
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 TEMP_DIR="$BACKUP_ROOT/temp_staging"
 
-# 2. DETECT PROFILES
+# 2. DETECT PROFILES (Restored Depth to 4)
 # ------------------
 echo -e "\n${BLUE}🔍 Scanning for $BROWSER_NAME profiles...${RESET}"
 
-# Convert space-separated string to array for safer handling, filtering non-existent paths
-VALID_SEARCH_PATHS=()
+# Build a list of existing directories from the target paths
+EXISTING_PATHS=()
 for path in $TARGET_PATHS; do
     if [ -d "$path" ]; then
-        VALID_SEARCH_PATHS+=("$path")
+        EXISTING_PATHS+=("$path")
     fi
 done
 
-if [ ${#VALID_SEARCH_PATHS[@]} -eq 0 ]; then
-     echo -e "${RED}❌ Error: Could not find config folders for $BROWSER_NAME.${RESET}"
-     echo -e "${YELLOW}   Checked: $TARGET_PATHS${RESET}"
-     exit 1
-fi
-
-# Find profiles (searches for places.sqlite to confirm it's a valid profile folder)
-PROFILE_PATHS=$(find "${VALID_SEARCH_PATHS[@]}" -maxdepth 2 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
-IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
-
-if [ ${#PROFILES[@]} -eq 0 ] || [ -z "$PROFILE_PATHS" ]; then
-    echo -e "${RED}❌ Error: No valid profiles found in search paths!${RESET}"
+if [ ${#EXISTING_PATHS[@]} -eq 0 ]; then
+    echo -e "${RED}❌ Error: No config directories found for $BROWSER_NAME.${RESET}"
     exit 1
 fi
 
-# 3. USER SELECTION (PROFILE)
-# ---------------------------
+# Search for places.sqlite (Indicator of a valid profile) with MAXDEPTH 4
+PROFILE_PATHS=$(find "${EXISTING_PATHS[@]}" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
+IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
+
+if [ ${#PROFILES[@]} -eq 0 ] || [ -z "$PROFILE_PATHS" ]; then
+    echo -e "${RED}❌ Error: No valid profiles found inside:${RESET}"
+    printf "   %s\n" "${EXISTING_PATHS[@]}"
+    exit 1
+fi
+
+# 3. SELECT PROFILE
+# -----------------
 echo -e "${GREEN}Found ${#PROFILES[@]} profile(s):${RESET}"
 i=1
 for p in "${PROFILES[@]}"; do
@@ -118,7 +109,6 @@ else
     read -p "Select profile [1-${#PROFILES[@]}]: " CHOICE
 fi
 
-# Validate selection
 if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt ${#PROFILES[@]} ]; then
     echo -e "${RED}❌ Invalid selection.${RESET}"; exit 1
 fi
@@ -126,7 +116,7 @@ fi
 SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
 ARCHIVE_NAME="${BROWSER_NAME}_backup_$(basename "$SELECTED_PROFILE")_${DATE}.tar.gz"
 
-# 4. START BACKUP
+# 4. START BACKUP (Matches uploaded file logic)
 # ---------------
 mkdir -p "$TEMP_DIR"
 echo -e "\n${BLUE}📂 Processing: $SELECTED_PROFILE${RESET}"
@@ -139,10 +129,9 @@ cp "$SELECTED_PROFILE/favicons.sqlite" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/key4.db" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/logins.json" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/pkcs11.txt" "$TEMP_DIR/" 2>/dev/null
-cp "$SELECTED_PROFILE/cert9.db" "$TEMP_DIR/" 2>/dev/null # Added certs
 
 # --- Step B: Session ---
-echo "   • Copying Session (Tabs & Windows)..."
+echo "   • Copying Session..."
 cp "$SELECTED_PROFILE/sessionstore.jsonlz4" "$TEMP_DIR/" 2>/dev/null
 if [ -d "$SELECTED_PROFILE/sessionstore-backups" ]; then cp -r "$SELECTED_PROFILE/sessionstore-backups" "$TEMP_DIR/"; fi
 
@@ -153,62 +142,47 @@ cp "$SELECTED_PROFILE/extensions.json" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/extension-preferences.json" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/extension-settings.json" "$TEMP_DIR/" 2>/dev/null
 
-# --- Step D: Visuals (Intelligent Check) ---
+# --- Step D: Visuals ---
 echo "   • Checking for Visual Mods..."
 if [ -d "$SELECTED_PROFILE/chrome" ]; then
     cp -r "$SELECTED_PROFILE/chrome" "$TEMP_DIR/"
-
-    # Identify what we found for the user
-    if [ -f "$SELECTED_PROFILE/chrome/userChrome.css" ]; then
-        echo "     -> Found 'userChrome.css' (Styles backed up)."
-    else
-        echo "     -> Found chrome folder (Backed up)."
-    fi
+    echo "     -> Found chrome folder (Backed up)."
 else
-    echo "     -> No visual mods found (Skipping)."
+    echo "     -> No visual mods found."
 fi
 cp "$SELECTED_PROFILE/xulstore.json" "$TEMP_DIR/" 2>/dev/null
 
-# --- Step E: Settings (The "Sanitizer") ---
-echo "   • 🧠 Cleaning Settings (Removing absolute paths)..."
+# --- Step E: Settings (Sanitization) ---
+echo "   • 🧠 Cleaning Settings..."
 
 if [ -f "$SELECTED_PROFILE/prefs.js" ]; then
-    # Copy full settings to user.js (Browser loads this on startup)
+    # Copy full settings to user.js (Firefox/Zen loads this on startup)
     cp "$SELECTED_PROFILE/prefs.js" "$TEMP_DIR/user.js"
 
-    # 1. Remove absolute file paths (Fixes Crashes on restore across different users/distros)
+    # 1. Remove absolute file paths (Fixes restore crashes)
     sed -i '/\/home\//d' "$TEMP_DIR/user.js"
     sed -i '/file:\/\//d' "$TEMP_DIR/user.js"
 
-    # 2. Remove broken icon settings if present
+    # 2. Remove broken icon settings
     sed -i '/svg.context-properties.content.enabled/d' "$TEMP_DIR/user.js"
     sed -i '/toolkit.legacyUserProfileCustomizations.stylesheets/d' "$TEMP_DIR/user.js"
 fi
 
-# Inject Generic CSS/Theme Fixes (Useful for Zen, FirefoxCSS, etc.)
+# Inject Standard Fixes (Ensures themes work on restore)
 echo "" >> "$TEMP_DIR/user.js"
-echo '// AUTO-INJECTED FIX: Enable UserChrome & SVG Support' >> "$TEMP_DIR/user.js"
+echo '// AUTO-INJECTED FIX' >> "$TEMP_DIR/user.js"
 echo 'user_pref("svg.context-properties.content.enabled", true);' >> "$TEMP_DIR/user.js"
 echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$TEMP_DIR/user.js"
 
-# 5. COMPRESSION & CLEANUP
-# ------------------------
+# 5. COMPRESS
+# -----------
 echo -e "\n${BOLD}📦 Compressing archive...${RESET}"
 tar -czf "$BACKUP_ROOT/$ARCHIVE_NAME" -C "$TEMP_DIR" .
 rm -rf "$TEMP_DIR"
 
-# 6. SUMMARY & INSTRUCTIONS
-# -------------------------
+# 6. SUMMARY
+# ----------
 echo -e "${BLUE}========================================${RESET}"
 echo -e "${GREEN}✅ BACKUP SUCCESSFUL!${RESET}"
 echo -e "   File: ${BOLD}$BACKUP_ROOT/$ARCHIVE_NAME${RESET}"
 echo -e "${BLUE}========================================${RESET}"
-
-echo -e "\n${BOLD}📝 HOW TO RESTORE:${RESET}"
-echo -e "1. Extract this archive into your ${BOLD}$BROWSER_NAME${RESET} profile folder."
-echo -e "   (Usually found in: ${CYAN}${VALID_SEARCH_PATHS[0]}${RESET})"
-echo -e "2. Or create a new profile via ${BOLD}about:profiles${RESET} and drop files there."
-
-echo -e "\e[34m----------------------------------------\e[0m"
-echo -e "\e[1m\e[36m   ✨  Backup secure. Go break your \e[31mBROWSER\e[36m.  ✨\e[0m"
-echo -e "\e[34m----------------------------------------\e[0m"
