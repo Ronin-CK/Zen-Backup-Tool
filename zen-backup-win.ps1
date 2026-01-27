@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     ZEN BROWSER ULTIMATE BACKUP (Windows Edition)
     "Hopp Destro" Edition - Auto-Fixes Icons & Sanitizes Paths
@@ -22,19 +22,23 @@ Print-Section
 
 # 2. DETECT PROFILES
 # ------------------
-$ZenPath = "$env:APPDATA\Zen\Profiles"
+# We check standard locations
+$PossiblePaths = @(
+    "$env:APPDATA\Zen\Profiles",
+    "$env:APPDATA\Zen Browser\Profiles"
+)
 
-if (-not (Test-Path $ZenPath)) {
-    Print-Color "❌ Error: Zen Profiles folder not found at: $ZenPath" "Red"
-    Pause; Exit
+$Profiles = @()
+foreach ($path in $PossiblePaths) {
+    if (Test-Path $path) {
+        $found = Get-ChildItem -Path $path -Directory | Where-Object { Test-Path "$($_.FullName)\places.sqlite" }
+        if ($found) { $Profiles += $found }
+    }
 }
-
-# Find valid profiles (folders containing places.sqlite)
-$Profiles = Get-ChildItem -Path $ZenPath -Directory | Where-Object { Test-Path "$($_.FullName)\places.sqlite" }
 
 if ($Profiles.Count -eq 0) {
     Print-Color "❌ Error: No Zen profiles found!" "Red"
-    Pause; Exit
+    # We don't exit here anymore, we offer manual entry in the next step
 }
 
 # 3. USER SELECTION (Always Ask)
@@ -45,22 +49,29 @@ foreach ($p in $Profiles) {
     Write-Host "  [$i] $($p.Name)"
     $i++
 }
+Write-Host "  [M] Manually enter path"
 
 Write-Host ""
-$InputVal = Read-Host "Select profile number [Press Enter for 1]"
+$InputVal = Read-Host "Select profile [1-$($Profiles.Count)] or 'M'"
 
-if ([string]::IsNullOrWhiteSpace($InputVal)) { 
-    $Choice = 1 
-} else {
-    $Choice = $InputVal
+# Handle Manual Entry
+if ($InputVal -eq "M" -or $InputVal -eq "m") {
+    $ManualPath = Read-Host "Enter full path to profile folder"
+    if (-not (Test-Path $ManualPath)) { Print-Color "❌ Directory not found!" "Red"; Pause; Exit }
+    
+    # Fake a profile object
+    $SelectedProfile = [PSCustomObject]@{
+        Name = (Split-Path $ManualPath -Leaf)
+        FullName = $ManualPath
+    }
 }
-
-# Validate
-if ($Choice -lt 1 -or $Choice -gt $Profiles.Count) {
+# Handle Numeric Selection
+elseif ($InputVal -match "^\d+$" -and $InputVal -ge 1 -and $InputVal -le $Profiles.Count) {
+    $SelectedProfile = $Profiles[$InputVal - 1]
+}
+else {
     Print-Color "❌ Invalid selection." "Red"; Pause; Exit
 }
-
-$SelectedProfile = $Profiles[$Choice - 1]
 $ArchiveName = "zen_win_backup_$($SelectedProfile.Name)_$Date.zip"
 
 # 4. START BACKUP
@@ -72,6 +83,12 @@ Print-Color "`n📂 Processing: $($SelectedProfile.Name)" "Cyan"
 # --- Step A: Essential Data ---
 Write-Host "   • Copying Data (History, Passwords, Cookies)..."
 $FilesToCopy = @("places.sqlite", "cookies.sqlite", "favicons.sqlite", "key4.db", "logins.json", "pkcs11.txt", "sessionstore.jsonlz4", "extensions.json", "extension-settings.json")
+
+# --- Step A.5: Zen 1.18+ Compatibility (JSONs) ---
+# Copy all .json files from root to ensure sidebar/workspace config is saved
+Get-ChildItem -Path $SelectedProfile.FullName -Filter "*.json" | ForEach-Object {
+    Copy-Item $_.FullName -Destination $TempDir
+}
 
 foreach ($file in $FilesToCopy) {
     Copy-Item "$($SelectedProfile.FullName)\$file" -Destination $TempDir
