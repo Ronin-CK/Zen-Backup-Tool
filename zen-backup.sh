@@ -24,73 +24,36 @@ pause_and_exit() {
 # Header
 clear
 echo -e "${BLUE}========================================${RESET}"
-echo -e "${BOLD}   ZEN BROWSER BACKUP TOOL   ${RESET}"
+echo -e "${BOLD}   ZEN BROWSER BACKUP & RESTORE   ${RESET}"
 echo -e "${BLUE}========================================${RESET}"
 
-# 1. DETECT PROFILES
-# ------------------
-# Scans common Linux locations for Zen profiles
-POSSIBLE_SEARCH_PATHS=(
-    "$HOME/.zen"
-    "$HOME/.var/app/io.github.zen_browser.zen/.zen"
-    "$HOME/.local/share/zen"
-    "$HOME/.mozilla/zen"
-    "$HOME/snap/zen/common/.zen"
-)
-PROFILE_PATHS=$(find "${POSSIBLE_SEARCH_PATHS[@]}" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
-IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
+# Shared: Detect Profiles Function
+detect_profiles() {
+    # Scans common Linux locations for Zen profiles
+    POSSIBLE_SEARCH_PATHS=(
+        "$HOME/.zen"
+        "$HOME/.var/app/io.github.zen_browser.zen/.zen"
+        "$HOME/.local/share/zen"
+        "$HOME/.mozilla/zen"
+        "$HOME/snap/zen/common/.zen"
+    )
+    PROFILE_PATHS=$(find "${POSSIBLE_SEARCH_PATHS[@]}" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
+    IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
+}
 
-if [ ${#PROFILES[@]} -eq 0 ]; then
-    echo -e "${RED}❌ Error: No Zen profiles found!${RESET}"
-    echo -e "   Checked locations:"
-    for path in "${POSSIBLE_SEARCH_PATHS[@]}"; do
-        echo -e "   - $path"
-    done
-    pause_and_exit 1
-fi
-
-# 2. USER SELECTION
-# -----------------
-echo -e "${GREEN}Found ${#PROFILES[@]} profile(s):${RESET}"
-i=1
-for p in "${PROFILES[@]}"; do
-    echo "  [$i] $(basename "$p")"
-    ((i++))
-done
-echo "  [M] Manually enter path"
-
-echo ""
-read -p "Select profile [1-${#PROFILES[@]}] or 'M': " CHOICE
-
-# Handle Manual Selection
-if [[ "$CHOICE" == "M" || "$CHOICE" == "m" ]]; then
-    echo -e "\nEnter the full path to your Zen profile folder:"
-    read -e -p "Path: " MANUAL_PATH
+# 1. BACKUP FUNCTION
+perform_backup() {
+    detect_profiles
+    detect_step_logic "BACKUP"
     
-    # Validate manual path
-    if [ ! -d "$MANUAL_PATH" ]; then
-        echo -e "${RED}❌ Error: Directory does not exist!${RESET}"
-        pause_and_exit 1
-    fi
-    if [ ! -f "$MANUAL_PATH/places.sqlite" ]; then
-        echo -e "${RED}⚠️  Warning: This doesn't look like a standard profile (missing places.sqlite).${RESET}"
-        echo -e "   We will try to proceed anyway..."
-    fi
+    ARCHIVE_NAME="zen_backup_$(basename "$SELECTED_PROFILE")_${DATE}.tar.gz"
     
-    SELECTED_PROFILE="$MANUAL_PATH"
+    # START BACKUP
+    mkdir -p "$TEMP_DIR"
+    echo -e "\n${BLUE}📂 Processing Backup for: $SELECTED_PROFILE${RESET}"
+    
+    # ... (Rest of Copy Logic will be below) ...
 
-# Handle Numeric Selection
-elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#PROFILES[@]} ]; then
-    SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
-else
-    echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1
-fi
-ARCHIVE_NAME="zen_backup_$(basename "$SELECTED_PROFILE")_${DATE}.tar.gz"
-
-# 3. START BACKUP
-# ---------------
-mkdir -p "$TEMP_DIR"
-echo -e "\n${BLUE}📂 Processing: $SELECTED_PROFILE${RESET}"
 
 # --- Step A: Essential Data ---
 echo "   • Copying Data (History, Passwords, Cookies)..."
@@ -172,10 +135,126 @@ echo -e "${GREEN}✅ BACKUP SUCCESSFUL!${RESET}"
 echo -e "   File: ${BOLD}$BACKUP_ROOT/$ARCHIVE_NAME${RESET}"
 echo -e "${BLUE}========================================${RESET}"
 
-echo -e "\n${BOLD}📝 HOW TO RESTORE:${RESET}"
-echo -e "2. Extract this archive into ${BLUE}$HOME/.zen${RESET}."
-echo -e "3. Open Zen -> Go to ${BOLD}about:profiles${RESET} -> Create New Profile."
-echo -e "4. Select the folder you just created."
+    if [ -f "$BACKUP_ROOT/$ARCHIVE_NAME" ]; then
+        echo ""
+        read -p "Do you want to restore this backup to a profile now? [y/N]: " RESTORE_NOW
+        if [[ "$RESTORE_NOW" =~ ^[Yy]$ ]]; then
+            perform_restore "$BACKUP_ROOT/$ARCHIVE_NAME"
+        fi
+    fi
+
+    echo -e "\n${BOLD}📝 HOW TO RESTORE:${RESET}"
+    echo -e "   Run this script again and select '[2] Restore'"
+    echo -e "\e[34m----------------------------------------\e[0m"
+}
+
+# 2. RESTORE FUNCTION
+perform_restore() {
+    PRE_SELECTED_BACKUP=$1
+    echo -e "\n${BLUE}=== RESTORE MODE ===${RESET}"
+    
+    if [ -n "$PRE_SELECTED_BACKUP" ] && [ -f "$PRE_SELECTED_BACKUP" ]; then
+        SELECTED_BACKUP="$PRE_SELECTED_BACKUP"
+        echo -e "👉 Using pre-selected backup: ${BLUE}$(basename "$SELECTED_BACKUP")${RESET}"
+    else
+        # 1. Find Backups
+        BACKUPS=("$BACKUP_ROOT"/*.tar.gz)
+        if [ ! -e "${BACKUPS[0]}" ]; then
+            echo -e "${RED}❌ No backups found in $BACKUP_ROOT${RESET}"
+            pause_and_exit 1
+        fi
+        
+        echo -e "${GREEN}Available Backups:${RESET}"
+        j=1
+        for b in "${BACKUPS[@]}"; do
+            echo "  [$j] $(basename "$b")"
+            ((j++))
+        done
+        
+        echo ""
+        read -p "Select backup to restore [1-${#BACKUPS[@]}]: " B_CHOICE
+        if ! [[ "$B_CHOICE" =~ ^[0-9]+$ ]] || [ "$B_CHOICE" -lt 1 ] || [ "$B_CHOICE" -gt ${#BACKUPS[@]} ]; then
+            echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1
+        fi
+        SELECTED_BACKUP="${BACKUPS[$((B_CHOICE-1))]}"
+    fi
+    
+    # 2. Select Target Profile
+    echo -e "\n${YELLOW}Select TARGET Profile to overwrite:${RESET}"
+    detect_profiles
+    detect_step_logic "RESTORE_TARGET"
+    
+    # 3. Confirmation
+    echo -e "\n${RED}${BOLD}⚠️  WARNING: OVERWRITE ACTION ⚠️${RESET}"
+    echo -e "You are about to extract:"
+    echo -e "   ${BLUE}$(basename "$SELECTED_BACKUP")${RESET}"
+    echo -e "INTO:"
+    echo -e "   ${RED}$SELECTED_PROFILE${RESET}"
+    echo -e "Existing files (bookmarks, session, styles) will be REPLACED."
+    echo -e "The folder itself is NOT deleted, only conflicting files are overwritten."
+    
+    echo ""
+    read -p "Type 'y' to confirm: " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        echo "Cancelled."; pause_and_exit 0
+    fi
+    
+    # 4. Do it
+    echo -e "\n${CYAN}⏳ Extracting backup...${RESET}"
+    tar -xzf "$SELECTED_BACKUP" -C "$SELECTED_PROFILE"
+    
+    echo -e "${GREEN}✅ Restore Complete!${RESET}"
+    echo -e "Please restart Zen Browser."
+}
+
+# Shared Step Logic (Selection)
+detect_step_logic() {
+    MODE=$1
+    if [ ${#PROFILES[@]} -eq 0 ]; then
+        echo -e "${RED}❌ Error: No Zen profiles found!${RESET}"
+        echo -e "   Checked locations:"
+        for path in "${POSSIBLE_SEARCH_PATHS[@]}"; do
+            echo -e "   - $path"
+        done
+        pause_and_exit 1
+    fi
+
+    echo -e "${GREEN}Found ${#PROFILES[@]} profile(s):${RESET}"
+    i=1
+    for p in "${PROFILES[@]}"; do
+        echo "  [$i] $(basename "$p")"
+        ((i++))
+    done
+    echo "  [M] Manually enter path"
+
+    echo ""
+    read -p "Select $MODE profile [1-${#PROFILES[@]}] or 'M': " CHOICE
+    
+    if [[ "$CHOICE" == "M" || "$CHOICE" == "m" ]]; then
+        echo -e "\nEnter the full path to your Zen profile folder:"
+        read -e -p "Path: " MANUAL_PATH
+        if [ ! -d "$MANUAL_PATH" ]; then
+            echo -e "${RED}❌ Error: Directory does not exist!${RESET}"
+            pause_and_exit 1
+        fi
+        SELECTED_PROFILE="$MANUAL_PATH"
+    elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#PROFILES[@]} ]; then
+        SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
+    else
+        echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1
+    fi
+}
+
+# MAIN MENU
+echo -e "Choose Operation:"
+echo -e "  [1] Backup"
+echo -e "  [2] Restore"
+read -p "Select [1-2]: " OP
+case $OP in
+    1) perform_backup ;;
+    2) perform_restore ;;
+    *) echo "Invalid"; exit 1 ;;
+esac
 
 echo -e "\e[34m----------------------------------------\e[0m"
 
