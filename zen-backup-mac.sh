@@ -15,6 +15,12 @@ CYAN="\033[36m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
+pause_and_exit() {
+    echo -e "\nPress Enter to exit..."
+    read
+    exit $1
+}
+
 # Header
 clear
 echo -e "${BLUE}========================================${RESET}"
@@ -24,15 +30,23 @@ echo -e "${BLUE}========================================${RESET}"
 # 1. DETECT PROFILES (macOS Path)
 # -------------------------------
 # macOS stores profiles in Application Support
-ZEN_MAC_PATH="$HOME/Library/Application Support/zen"
+# We check both "Zen Browser" (Standard) and "zen" (Legacy/Alternative)
+POSSIBLE_SEARCH_PATHS=(
+    "$HOME/Library/Application Support/Zen Browser/Profiles"
+    "$HOME/Library/Application Support/zen/Profiles"
+    "$HOME/Library/Application Support/Zen/Profiles"
+)
 
-PROFILE_PATHS=$(find "$ZEN_MAC_PATH" -maxdepth 4 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
-
-IFS=$'\n' read -rd '' -a PROFILES <<<"$PROFILE_PATHS"
+PROFILE_PATHS=$(find "${POSSIBLE_SEARCH_PATHS[@]}" -maxdepth 2 -name "places.sqlite" 2>/dev/null | sed 's|/places.sqlite||')
+IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
 
 if [ ${#PROFILES[@]} -eq 0 ]; then
-  echo -e "${RED}❌ Error: No Zen profiles found in Application Support!${RESET}"
-  exit 1
+    echo -e "${RED}❌ Error: No Zen profiles found!${RESET}"
+    echo -e "   Checked locations:"
+    for path in "${POSSIBLE_SEARCH_PATHS[@]}"; do
+        echo -e "   - $path"
+    done
+    pause_and_exit 1
 fi
 
 # 2. USER SELECTION
@@ -43,22 +57,34 @@ for p in "${PROFILES[@]}"; do
   echo "  [$i] $(basename "$p")"
   ((i++))
 done
+echo "  [M] Manually enter path"
 
-if [ ${#PROFILES[@]} -eq 1 ]; then
-  CHOICE=1
-  echo -e "\n👉 Auto-selecting the only profile."
+echo ""
+read -p "Select profile [1-${#PROFILES[@]}] or 'M': " CHOICE
+
+# Handle Manual Selection
+if [[ "$CHOICE" == "M" || "$CHOICE" == "m" ]]; then
+    echo -e "\nEnter the full path to your Zen profile folder:"
+    read -e -p "Path: " MANUAL_PATH
+    
+    # Validate manual path
+    if [ ! -d "$MANUAL_PATH" ]; then
+        echo -e "${RED}❌ Error: Directory does not exist!${RESET}"
+        pause_and_exit 1
+    fi
+    if [ ! -f "$MANUAL_PATH/places.sqlite" ]; then
+        echo -e "${RED}⚠️  Warning: This doesn't look like standard profile (missing places.sqlite).${RESET}"
+        echo -e "   We will try to proceed anyway..."
+    fi
+    
+    SELECTED_PROFILE="$MANUAL_PATH"
+
+# Handle Numeric Selection
+elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#PROFILES[@]} ]; then
+    SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
 else
-  echo ""
-  read -p "Select profile [1-${#PROFILES[@]}]: " CHOICE
+    echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1
 fi
-
-# Validate selection
-if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt ${#PROFILES[@]} ]; then
-  echo -e "${RED}❌ Invalid selection.${RESET}"
-  exit 1
-fi
-
-SELECTED_PROFILE="${PROFILES[$((CHOICE - 1))]}"
 ARCHIVE_NAME="zen_mac_backup_$(basename "$SELECTED_PROFILE")_${DATE}.tar.gz"
 
 # 3. START BACKUP
@@ -74,6 +100,11 @@ cp "$SELECTED_PROFILE/favicons.sqlite" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/key4.db" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/logins.json" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/pkcs11.txt" "$TEMP_DIR/" 2>/dev/null
+
+# --- Step A.5: Zen 1.18+ Compatibility ---
+# Zen 1.18 moved Sidebar/Workspace data to JSON files.
+echo "   • Copying Configs (Ensures 1.18+ Sidebar support)..."
+cp "$SELECTED_PROFILE/"*.json "$TEMP_DIR/" 2>/dev/null
 
 # --- Step B: Session ---
 echo "   • Copying Session..."
@@ -149,3 +180,5 @@ echo -e "3. Select the folder you just created."
 echo -e "${BLUE}----------------------------------------${RESET}"
 echo -e "${BOLD}${CYAN}   ✨  Backup secure. Go break your ${RED}MAC${CYAN}.  ✨${RESET}"
 echo -e "${BLUE}----------------------------------------${RESET}"
+
+pause_and_exit 0
