@@ -12,6 +12,12 @@ YELLOW="\e[33m"
 BOLD="\e[1m"
 RESET="\e[0m"
 
+pause_and_exit() {
+    echo -e "\nPress Enter to exit..."
+    read
+    exit $1
+}
+
 # Header
 clear
 echo -e "${BLUE}========================================${RESET}"
@@ -58,7 +64,7 @@ case $BROWSER_CHOICE in
         TARGET_PATHS="$CUSTOM_PATH"
         BROWSER_NAME="Custom" ;;
     *)
-        echo -e "${RED}❌ Invalid selection.${RESET}"; exit 1 ;;
+        echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1 ;;
 esac
 
 BACKUP_ROOT="$HOME/Backups/$BROWSER_NAME"
@@ -79,7 +85,7 @@ done
 
 if [ ${#EXISTING_PATHS[@]} -eq 0 ]; then
     echo -e "${RED}❌ Error: No config directories found for $BROWSER_NAME.${RESET}"
-    exit 1
+    pause_and_exit 1
 fi
 
 # Search for places.sqlite (Indicator of a valid profile) with MAXDEPTH 4
@@ -89,7 +95,7 @@ IFS=$'\n' read -rd '' -a PROFILES <<< "$PROFILE_PATHS"
 if [ ${#PROFILES[@]} -eq 0 ] || [ -z "$PROFILE_PATHS" ]; then
     echo -e "${RED}❌ Error: No valid profiles found inside:${RESET}"
     printf "   %s\n" "${EXISTING_PATHS[@]}"
-    exit 1
+    pause_and_exit 1
 fi
 
 # 3. SELECT PROFILE
@@ -100,20 +106,24 @@ for p in "${PROFILES[@]}"; do
     echo "  [$i] $(basename "$p")"
     ((i++))
 done
+echo "  [M] Manually enter path"
 
-if [ ${#PROFILES[@]} -eq 1 ]; then
-    CHOICE=1
-    echo -e "\n👉 Auto-selecting the only profile."
+echo ""
+read -p "Select profile [1-${#PROFILES[@]}] or 'M': " CHOICE
+
+if [[ "$CHOICE" == "M" || "$CHOICE" == "m" ]]; then
+    echo -e "\nEnter the full path to your profile folder:"
+    read -e -p "Path: " MANUAL_PATH
+    if [ ! -d "$MANUAL_PATH" ]; then
+        echo -e "${RED}❌ Error: Directory does not exist!${RESET}"
+        pause_and_exit 1
+    fi
+     SELECTED_PROFILE="$MANUAL_PATH"
+elif [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#PROFILES[@]} ]; then
+    SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
 else
-    echo ""
-    read -p "Select profile [1-${#PROFILES[@]}]: " CHOICE
+    echo -e "${RED}❌ Invalid selection.${RESET}"; pause_and_exit 1
 fi
-
-if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt ${#PROFILES[@]} ]; then
-    echo -e "${RED}❌ Invalid selection.${RESET}"; exit 1
-fi
-
-SELECTED_PROFILE="${PROFILES[$((CHOICE-1))]}"
 ARCHIVE_NAME="${BROWSER_NAME}_backup_$(basename "$SELECTED_PROFILE")_${DATE}.tar.gz"
 
 # 4. START BACKUP (Matches uploaded file logic)
@@ -129,6 +139,10 @@ cp "$SELECTED_PROFILE/favicons.sqlite" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/key4.db" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/logins.json" "$TEMP_DIR/" 2>/dev/null
 cp "$SELECTED_PROFILE/pkcs11.txt" "$TEMP_DIR/" 2>/dev/null
+
+# --- Step A.5: New Configs (Zen 1.18+ / Modern Firefox) ---
+echo "   • Copying Configs (*.json)..."
+cp "$SELECTED_PROFILE/"*.json "$TEMP_DIR/" 2>/dev/null
 
 # --- Step B: Session ---
 echo "   • Copying Session..."
@@ -186,3 +200,5 @@ echo -e "${BLUE}========================================${RESET}"
 echo -e "${GREEN}✅ BACKUP SUCCESSFUL!${RESET}"
 echo -e "   File: ${BOLD}$BACKUP_ROOT/$ARCHIVE_NAME${RESET}"
 echo -e "${BLUE}========================================${RESET}"
+
+pause_and_exit 0
