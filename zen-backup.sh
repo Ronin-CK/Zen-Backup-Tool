@@ -15,6 +15,7 @@ search_paths=(
     "$HOME/.zen"
     "$HOME/.var/app/io.github.zen_browser.zen/.zen"
     "$HOME/.local/share/zen"
+    "$HOME/.config/zen"
 )
 
 # find profiles that actually have history (places.sqlite)
