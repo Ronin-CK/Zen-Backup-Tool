@@ -97,33 +97,23 @@ do_backup() {
     done
 
     # Configs, Sessions & Extension State
-    # We grab ALL json/jsonlz4 to catch extensions.json, addonStartup.jsonlz4, etc.
+    # This covers: zen-themes.json, zen-sessions.jsonlz4, extensions.json, containers.json, etc.
     cp "$selected"/*.{json,jsonlz4,mozlz4,lz4} "$staging/" 2>/dev/null
 
     # Session store backups
     [ -d "$selected/sessionstore-backups" ] && cp -r "$selected/sessionstore-backups" "$staging/"
     
     # Extensions & Chrome (Themes)
-    # extensions: the actual .xpi files
-    # storage: extension data (CRITICAL for extension functionality)
     [ -d "$selected/extensions" ] && cp -r "$selected/extensions" "$staging/"
     [ -d "$selected/storage" ] && cp -r "$selected/storage" "$staging/"
-    if [ -d "$selected/chrome" ]; then
-        cp -r "$selected/chrome" "$staging/"
-        echo "  -> Included chrome folder (themes/CSS)"
-    fi
+    [ -d "$selected/chrome" ] && cp -r "$selected/chrome" "$staging/"
 
-    # SANITIZATION - Clean prefs.js and create minimal user.js
+    # PREFERENCES - Copy as-is to prevent settings reset
     if [ -f "$selected/prefs.js" ]; then
         cp "$selected/prefs.js" "$staging/prefs.js"
         
-        # Remove absolute paths to fix restore crashes
-        sed -i '/\/home\//d' "$staging/prefs.js"
-        sed -i '/\/Users\//d' "$staging/prefs.js" # Also handle Mac paths if migrating
-        sed -i '/file:\/\//d' "$staging/prefs.js"
-        
-        # Create minimal user.js for critical UI flags only
         {
+            echo '// Zen Backup Tool - UI Fixes'
             echo 'user_pref("svg.context-properties.content.enabled", true);'
             echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
             echo 'user_pref("browser.tabs.allow_css_customization", true);'
