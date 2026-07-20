@@ -4,7 +4,7 @@
 #>
 
 $ErrorActionPreference = "SilentlyContinue"
-$BackupRoot = "$HOME\Documents\Backups\ZenBrowser"
+$BackupRoot = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Backups\ZenBrowser"
 $TempDir = "$BackupRoot\temp_staging"
 
 # Standard paths for Zen on Windows
